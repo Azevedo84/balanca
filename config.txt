@@ -1,0 +1,2 @@
+Porta: COM3
+Caminho: C:/Users/azeve/Desktop/peso.txt
