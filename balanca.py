@@ -1,6 +1,5 @@
 import sys
 from tela_balanca import *
-from configuracao import TelaConfiguraPorta
 from PyQt5.QtWidgets import QMainWindow, QApplication, QMessageBox
 import os
 import serial.tools.list_ports
@@ -8,57 +7,6 @@ import inspect
 import traceback
 from datetime import datetime
 import re
-
-
-def mensagem_alerta(mensagem):
-    try:
-        alert = QMessageBox()
-        alert.setIcon(QMessageBox.Warning)
-        alert.setText(mensagem)
-        alert.setWindowTitle("Atenção")
-        alert.setStandardButtons(QMessageBox.Ok)
-        alert.exec_()
-
-    except Exception as e:
-        nome_funcao = inspect.currentframe().f_code.co_name
-        nome_arquivo_com_caminho = inspect.getframeinfo(inspect.currentframe()).filename
-        nome_arquivo = os.path.basename(nome_arquivo_com_caminho)
-        trata_excecao(nome_funcao, e, nome_arquivo)
-        grava_erro_banco(nome_funcao, e, nome_arquivo)
-
-
-def grava_erro_banco(nome_funcao, e, nome_arquivo):
-    try:
-        hora_atual = datetime.now()
-
-        hora_formatada = hora_atual.strftime("%d/%m/%Y %H:%M:%S")
-
-        msg_editada = str(e).replace("'", "")
-        msg_editada1 = msg_editada.replace('"', ' ')
-        msg_editada2 = msg_editada1.replace('\\', '  ')
-        dados = f"{hora_formatada} - {nome_arquivo}' - '{nome_funcao}' - '{msg_editada2}"
-        with open('log_erro.txt', 'w') as arquivo:
-            arquivo.write(dados)
-
-    except Exception as e:
-        nome_funcao = inspect.currentframe().f_code.co_name
-        nome_arquivo_com_caminho = inspect.getframeinfo(inspect.currentframe()).filename
-        nome_arquivo = os.path.basename(nome_arquivo_com_caminho)
-        trata_excecao(nome_funcao, e, nome_arquivo)
-        grava_erro_banco(nome_funcao, e, nome_arquivo)
-
-
-def trata_excecao(nome_funcao, mensagem, arquivo):
-    try:
-        traceback.print_exc()
-        mensagem_alerta(f'Houve um problema no arquivo: {arquivo} na função: "{nome_funcao}":\n{mensagem}')
-
-    except Exception as e:
-        nome_funcao = inspect.currentframe().f_code.co_name
-        nome_arquivo_com_caminho = inspect.getframeinfo(inspect.currentframe()).filename
-        nome_arquivo = os.path.basename(nome_arquivo_com_caminho)
-        trata_excecao(nome_funcao, e, nome_arquivo)
-        grava_erro_banco(nome_funcao, e, nome_arquivo)
 
 
 def transforma_string_virgula(string):
@@ -81,11 +29,7 @@ def transforma_string_virgula(string):
         return string_com_virgula
 
     except Exception as e:
-        nome_funcao = inspect.currentframe().f_code.co_name
-        nome_arquivo_com_caminho = inspect.getframeinfo(inspect.currentframe()).filename
-        nome_arquivo = os.path.basename(nome_arquivo_com_caminho)
-        trata_excecao(nome_funcao, str(e), nome_arquivo)
-        grava_erro_banco(nome_funcao, e, nome_arquivo)
+        print(e)
 
 
 def transforma_em_float(string):
@@ -111,11 +55,7 @@ def transforma_em_float(string):
         return valor_float
 
     except Exception as e:
-        nome_funcao = inspect.currentframe().f_code.co_name
-        nome_arquivo_com_caminho = inspect.getframeinfo(inspect.currentframe()).filename
-        nome_arquivo = os.path.basename(nome_arquivo_com_caminho)
-        trata_excecao(nome_funcao, str(e), nome_arquivo)
-        grava_erro_banco(nome_funcao, e, nome_arquivo)
+        print(e)
 
 
 class TelaInicio(QMainWindow, Ui_MainWindow):
@@ -124,6 +64,9 @@ class TelaInicio(QMainWindow, Ui_MainWindow):
         super().setupUi(self)
 
         self.setWindowIcon(QtGui.QIcon(r'imagens\pacifil.jpg'))
+
+        nome_arquivo_com_caminho = inspect.getframeinfo(inspect.currentframe()).filename
+        self.nome_arquivo = os.path.basename(nome_arquivo_com_caminho)
 
         self.btn_Salvar_Txt1.clicked.connect(self.salvar_txt1)
         self.btn_Salvar_Txt2.clicked.connect(self.salvar_txt2)
@@ -135,30 +78,125 @@ class TelaInicio(QMainWindow, Ui_MainWindow):
         self.btn_Limpar1.clicked.connect(self.limpar_tudo1)
         self.btn_Limpar2.clicked.connect(self.limpar_tudo2)
 
-        self.btn_Configura.clicked.connect(self.abrir_tela_secundaria)
+        self.btn_Configura.clicked.connect(self.abrir_tela_config)
 
         self.tela_config = []
+        self.conectou = False
 
-        self.caminho_config = 'config.txt'
+        config_txt = 'config.txt'
         caminho = './'
-        self.caminho_completo_config = os.path.join(caminho, self.caminho_config)
-
-        self.porta_definida = ""
+        self.caminho_config_txt = os.path.join(caminho, config_txt)
 
         self.producao_bob1 = False
         self.producao_bob2 = False
 
         self.ver_se_txt_existe()
 
+    def abrir_tela_config(self):
+        try:
+            self.chama_tela_configuracao(self.conectou)
+
+        except Exception as e:
+            nome_funcao = inspect.currentframe().f_code.co_name
+            self.trata_excecao(nome_funcao, e, self.nome_arquivo)
+            self.grava_erro_banco(nome_funcao, e, self.nome_arquivo)
+
+    def chama_tela_configuracao(self, conectou):
+        try:
+            from configuracao import TelaConfiguracao
+
+            self.tela_config = TelaConfiguracao(conectou)
+            self.tela_config.produto_escolhido.connect(self.recebe_conexao)
+            self.tela_config.show()
+
+        except Exception as e:
+            nome_funcao = inspect.currentframe().f_code.co_name
+            self.trata_excecao(nome_funcao, e, self.nome_arquivo)
+            self.grava_erro_banco(nome_funcao, e, self.nome_arquivo)
+
+    def recebe_conexao(self, conectou):
+        try:
+            if conectou:
+                self.label_msg.setStyleSheet("color: green;")
+                self.label_msg.setText("Balança conectada!")
+
+        except Exception as e:
+            nome_funcao = inspect.currentframe().f_code.co_name
+            self.trata_excecao(nome_funcao, e, self.nome_arquivo)
+            self.grava_erro_banco(nome_funcao, e, self.nome_arquivo)
+
+    def mensagem_alerta(self, mensagem):
+        try:
+            alert = QMessageBox()
+            alert.setIcon(QMessageBox.Warning)
+            alert.setText(mensagem)
+            alert.setWindowTitle("Atenção")
+            alert.setStandardButtons(QMessageBox.Ok)
+            alert.exec_()
+
+        except Exception as e:
+            nome_funcao = inspect.currentframe().f_code.co_name
+            self.trata_excecao(nome_funcao, e, self.nome_arquivo)
+            self.grava_erro_banco(nome_funcao, e, self.nome_arquivo)
+
+    def grava_erro_banco(self, nome_funcao, e, nome_arquivo):
+        try:
+            hora_atual = datetime.now()
+
+            hora_formatada = hora_atual.strftime("%d/%m/%Y %H:%M:%S")
+
+            msg_editada = str(e).replace("'", "")
+            msg_editada1 = msg_editada.replace('"', ' ')
+            msg_editada2 = msg_editada1.replace('\\', '  ')
+            dados = f"{hora_formatada}\n" \
+                    f"- Nome Arquivo: {nome_arquivo}\n" \
+                    f"- Nome Função: {nome_funcao}\n" \
+                    f"- Erro: {msg_editada2}"
+            with open('log_erro.txt', 'w') as arquivo:
+                arquivo.write(dados)
+
+        except Exception as e:
+            nome_funcao = inspect.currentframe().f_code.co_name
+            self.trata_excecao(nome_funcao, e, self.nome_arquivo)
+            self.grava_erro_banco(nome_funcao, e, self.nome_arquivo)
+
+    def trata_excecao(self, nome_funcao, mensagem, arquivo):
+        try:
+            traceback.print_exc()
+            self.mensagem_alerta(f'Houve um problema no arquivo: {arquivo} na função: "{nome_funcao}":\n{mensagem}')
+
+        except Exception as e:
+            nome_funcao = inspect.currentframe().f_code.co_name
+            self.trata_excecao(nome_funcao, e, self.nome_arquivo)
+            self.grava_erro_banco(nome_funcao, e, self.nome_arquivo)
+
+    def ler_txt_config(self):
+        try:
+            with open(self.caminho_config_txt, 'r') as arquivo:
+                linhas = arquivo.readlines()
+                linhas = [linha.strip() for linha in linhas]
+
+                caminho_peso = linhas[0][9:]
+                porta_com = linhas[1][7:]
+                bytes_b = linhas[2][7:]
+                taxa = linhas[3][6:]
+
+                return caminho_peso, porta_com, bytes_b, taxa
+
+        except Exception as e:
+            nome_funcao = inspect.currentframe().f_code.co_name
+            self.trata_excecao(nome_funcao, e, self.nome_arquivo)
+            self.grava_erro_banco(nome_funcao, e, self.nome_arquivo)
+
     def ver_se_txt_existe(self):
         try:
-            if not os.path.exists(self.caminho_completo_config):
+            if not os.path.exists(self.caminho_config_txt):
                 msg1 = 'O programa de pesagem não está configurado.\n'
                 msg1 += 'Pressione o botão "Configurações" para concluir esta etapa!'
                 msg2 = 'O programa de pesagem não está configurado!'
                 self.label_msg.setStyleSheet("color: red;")
                 self.label_msg.setText(msg2)
-                mensagem_alerta(msg1)
+                self.mensagem_alerta(msg1)
 
                 self.btn_Configura.setFocus()
             else:
@@ -166,27 +204,21 @@ class TelaInicio(QMainWindow, Ui_MainWindow):
 
         except Exception as e:
             nome_funcao = inspect.currentframe().f_code.co_name
-            nome_arquivo_com_caminho = inspect.getframeinfo(inspect.currentframe()).filename
-            nome_arquivo = os.path.basename(nome_arquivo_com_caminho)
-            trata_excecao(nome_funcao, e, nome_arquivo)
-            grava_erro_banco(nome_funcao, e, nome_arquivo)
-            sys.exit()
+            self.trata_excecao(nome_funcao, e, self.nome_arquivo)
+            self.grava_erro_banco(nome_funcao, e, self.nome_arquivo)
 
     def testar_conexao_porta(self):
         try:
+            caminho_peso, porta_com, bytes_b, taxa = self.ler_txt_config()
+
             try:
-                with open(self.caminho_completo_config, 'r') as arquivo:
-                    linhas = arquivo.readlines()
+                if caminho_peso and porta_com and bytes_b and taxa:
+                    num_bytes = int(bytes_b)
+                    taxa_trans = int(taxa)
 
-                    fim = linhas[0].find("\n")
-                    porta = linhas[0][7:fim]
+                    ser = serial.Serial(porta_com, taxa_trans, timeout=2)
 
-                    self.porta_definida = porta
-
-                if self.porta_definida:
-                    ser = serial.Serial(self.porta_definida, 9600, timeout=1)
-
-                    s = ser.read(8)
+                    s = ser.read(num_bytes)
 
                     if s:
                         self.label_msg.setStyleSheet("color: green;")
@@ -195,67 +227,54 @@ class TelaInicio(QMainWindow, Ui_MainWindow):
                         ser.close()
 
                     else:
-                        msg = f'Não foi possivel estabelecer uma comunicação com a balança\n' \
-                              f'através da porta "{self.porta_definida}"!'
+                        msg = f'Não foi possivel estabelecer uma comunicação com a balança ' \
+                              f'através da porta "{porta_com}"!'
 
-                        mensagem_alerta(msg)
+                        self.mensagem_alerta(msg)
                         self.label_msg.setStyleSheet("color: red;")
                         self.label_msg.setText(msg)
                         self.btn_Configura.setFocus()
 
                         ser.close()
 
+                else:
+                    msg1 = 'O programa de pesagem não está configurado.\n'
+                    msg1 += 'Pressione o botão "Configurações" para concluir esta etapa!'
+                    msg2 = 'O programa de pesagem não está configurado!'
+                    self.label_msg.setStyleSheet("color: red;")
+                    self.label_msg.setText(msg2)
+                    self.mensagem_alerta(msg1)
+
+                    self.btn_Configura.setFocus()
+
             except serial.SerialException as e:
-                mensagem_alerta(f'A porta "{self.porta_definida}" não foi encontrada!\n\n- {e}')
+                if "FileNotFoundError(2, 'O sistema não pode encontrar o arquivo especificado.'" in str(e):
+                    self.mensagem_alerta(f'Não foi possível conectar a porta "{porta_com}". '
+                                         f'Verifique se a porta está correta e se o dispositivo está conectado.')
+                else:
+                    self.mensagem_alerta(f'A porta "{porta_com}" não foi encontrada!\n\n- {e}')
 
                 self.label_msg.setStyleSheet("color: red;")
-                self.label_msg.setText(f'A porta "{self.porta_definida}" não foi encontrada!')
+                self.label_msg.setText(f'A porta "{porta_com}" não foi encontrada!')
                 self.btn_Configura.setFocus()
 
-        except Exception as e:
-            nome_funcao = inspect.currentframe().f_code.co_name
-            nome_arquivo_com_caminho = inspect.getframeinfo(inspect.currentframe()).filename
-            nome_arquivo = os.path.basename(nome_arquivo_com_caminho)
-            trata_excecao(nome_funcao, e, nome_arquivo)
-            grava_erro_banco(nome_funcao, e, nome_arquivo)
-            sys.exit()
-
-    def chama_tela_config(self):
-        try:
-            self.tela_config = TelaConfiguraPorta(self)
-            self.tela_config.show()
+                nome_funcao = inspect.currentframe().f_code.co_name
+                self.grava_erro_banco(nome_funcao, e, self.nome_arquivo)
 
         except Exception as e:
             nome_funcao = inspect.currentframe().f_code.co_name
-            nome_arquivo_com_caminho = inspect.getframeinfo(inspect.currentframe()).filename
-            nome_arquivo = os.path.basename(nome_arquivo_com_caminho)
-            trata_excecao(nome_funcao, e, nome_arquivo)
-            grava_erro_banco(nome_funcao, e, nome_arquivo)
-            sys.exit()
-
-    def abrir_tela_secundaria(self):
-        try:
-            self.tela_config = TelaConfiguraPorta(self.ver_se_txt_existe)
-            self.tela_config.closed.connect(self.ver_se_txt_existe)
-            self.tela_config.show()
-
-        except Exception as e:
-            nome_funcao = inspect.currentframe().f_code.co_name
-            nome_arquivo_com_caminho = inspect.getframeinfo(inspect.currentframe()).filename
-            nome_arquivo = os.path.basename(nome_arquivo_com_caminho)
-            trata_excecao(nome_funcao, e, nome_arquivo)
-            grava_erro_banco(nome_funcao, e, nome_arquivo)
-            sys.exit()
+            self.trata_excecao(nome_funcao, e, self.nome_arquivo)
+            self.grava_erro_banco(nome_funcao, e, self.nome_arquivo)
 
     def salvar_txt1(self):
         try:
-            if not os.path.exists(self.caminho_completo_config):
+            if not os.path.exists(self.caminho_config_txt):
                 msg1 = 'O programa de pesagem não está configurado.\n'
                 msg1 += 'Pressione o botão "Configurações" para concluir esta etapa!'
                 msg2 = 'O programa de pesagem não está configurado!'
                 self.label_msg.setStyleSheet("color: red;")
                 self.label_msg.setText(msg2)
-                mensagem_alerta(msg1)
+                self.mensagem_alerta(msg1)
 
                 self.btn_Configura.setFocus()
             else:
@@ -265,16 +284,14 @@ class TelaInicio(QMainWindow, Ui_MainWindow):
                     peso_float = transforma_em_float(peso)
 
                     if peso_float > 0:
-                        with open(self.caminho_completo_config, 'r') as arquivo:
-                            linhas = arquivo.readlines()
-                            caminho_peso = linhas[1][9:]
+                        caminho_peso, porta_com, bytes_b, taxa = self.ler_txt_config()
 
-                            if caminho_peso:
-                                with open(caminho_peso, 'w') as arquivo1:
-                                    peso_virgula = transforma_string_virgula(peso)
-                                    arquivo1.write(peso_virgula)
+                        if caminho_peso:
+                            with open(caminho_peso, 'w') as arquivo1:
+                                peso_virgula = transforma_string_virgula(peso)
+                                arquivo1.write(peso_virgula)
 
-                                mensagem_alerta("Peso da Bobina 1 salvo com sucesso!")
+                                self.mensagem_alerta("Peso da Bobina 1 salvo com sucesso!")
 
                         self.limpar_tudo1()
 
@@ -297,25 +314,22 @@ class TelaInicio(QMainWindow, Ui_MainWindow):
                             self.producao_bob2 = True
 
                     else:
-                        mensagem_alerta("O peso deve ser maior que zero!!")
+                        self.mensagem_alerta("O peso deve ser maior que zero!!")
 
         except Exception as e:
             nome_funcao = inspect.currentframe().f_code.co_name
-            nome_arquivo_com_caminho = inspect.getframeinfo(inspect.currentframe()).filename
-            nome_arquivo = os.path.basename(nome_arquivo_com_caminho)
-            trata_excecao(nome_funcao, e, nome_arquivo)
-            grava_erro_banco(nome_funcao, e, nome_arquivo)
-            sys.exit()
+            self.trata_excecao(nome_funcao, e, self.nome_arquivo)
+            self.grava_erro_banco(nome_funcao, e, self.nome_arquivo)
 
     def salvar_txt2(self):
         try:
-            if not os.path.exists(self.caminho_completo_config):
+            if not os.path.exists(self.caminho_config_txt):
                 msg1 = 'O programa de pesagem não está configurado.\n'
                 msg1 += 'Pressione o botão "Configurações" para concluir esta etapa!'
                 msg2 = 'O programa de pesagem não está configurado!'
                 self.label_msg.setStyleSheet("color: red;")
                 self.label_msg.setText(msg2)
-                mensagem_alerta(msg1)
+                self.mensagem_alerta(msg1)
 
                 self.btn_Configura.setFocus()
             else:
@@ -325,16 +339,14 @@ class TelaInicio(QMainWindow, Ui_MainWindow):
                     peso_float = transforma_em_float(peso)
 
                     if peso_float > 0:
-                        with open(self.caminho_completo_config, 'r') as arquivo:
-                            linhas = arquivo.readlines()
-                            caminho_peso = linhas[1][9:]
+                        caminho_peso, porta_com, bytes_b, taxa = self.ler_txt_config()
 
-                            if caminho_peso:
-                                with open(caminho_peso, 'w') as arquivo1:
-                                    peso_virgula = transforma_string_virgula(peso)
-                                    arquivo1.write(peso_virgula)
+                        if caminho_peso:
+                            with open(caminho_peso, 'w') as arquivo1:
+                                peso_virgula = transforma_string_virgula(peso)
+                                arquivo1.write(peso_virgula)
 
-                                mensagem_alerta("Peso da Bobina 2 salvo com sucesso!")
+                                self.mensagem_alerta("Peso da Bobina 2 salvo com sucesso!")
 
                         self.limpar_tudo2()
 
@@ -357,68 +369,77 @@ class TelaInicio(QMainWindow, Ui_MainWindow):
                             self.producao_bob2 = False
 
                     else:
-                        mensagem_alerta("O peso deve ser maior que zero!!")
+                        self.mensagem_alerta("O peso deve ser maior que zero!!")
 
         except Exception as e:
             nome_funcao = inspect.currentframe().f_code.co_name
-            nome_arquivo_com_caminho = inspect.getframeinfo(inspect.currentframe()).filename
-            nome_arquivo = os.path.basename(nome_arquivo_com_caminho)
-            trata_excecao(nome_funcao, e, nome_arquivo)
-            grava_erro_banco(nome_funcao, e, nome_arquivo)
-            sys.exit()
+            self.trata_excecao(nome_funcao, e, self.nome_arquivo)
+            self.grava_erro_banco(nome_funcao, e, self.nome_arquivo)
 
     def ler_peso_balanca(self):
+        caminho_peso, porta_com, bytes_b, taxa = self.ler_txt_config()
         try:
-            if not os.path.exists(self.caminho_completo_config):
+            if not os.path.exists(self.caminho_config_txt):
                 msg1 = 'O programa de pesagem não está configurado.\n'
                 msg1 += 'Pressione o botão "Configurações" para concluir esta etapa!'
                 msg2 = 'O programa de pesagem não está configurado!'
                 self.label_msg.setStyleSheet("color: red;")
                 self.label_msg.setText(msg2)
-                mensagem_alerta(msg1)
+                self.mensagem_alerta(msg1)
 
                 self.btn_Configura.setFocus()
             else:
-                with open(self.caminho_completo_config, 'r') as arquivo:
-                    linhas = arquivo.readlines()
+                try:
+                    if caminho_peso and porta_com and bytes_b and taxa:
+                        num_bytes = int(bytes_b)
+                        taxa_trans = int(taxa)
 
-                    fim = linhas[0].find("\n")
-                    porta = linhas[0][7:fim]
+                        ser = serial.Serial(porta_com, taxa_trans, timeout=2)
 
-                    try:
-                        ser = serial.Serial(porta, 9600, timeout=2)
-
-                        leitura_serial = ser.read(8)
+                        leitura_serial = ser.read(num_bytes)
                         if leitura_serial:
                             peso_inicial = leitura_serial.decode().strip()
 
                             padrao = re.compile(r'\d+\.\d+')
 
                             peso_final1 = padrao.findall(str(peso_inicial))
-                            peso_final_float = float(peso_final1[0])
-                            peso_final = str(peso_final_float)
+                            if peso_final1:
+                                peso_final_float = float(peso_final1[0])
+                                peso_final = str(peso_final_float)
 
-                            ser.close()
+                                ser.close()
+
+                                return peso_final
+                            else:
+                                self.mensagem_alerta(f"Formato de peso inválido recebido da balança: {peso_inicial}")
+                                ser.close()
+
+                                peso_final = ""
 
                             return peso_final
 
                         else:
-                            mensagem_alerta("Nenhum dado recebido. Fechando a porta serial.")
+                            self.mensagem_alerta("Nenhum dado recebido. Fechando a porta serial.")
                             ser.close()
-                    except serial.SerialException as e:
-                        mensagem_alerta(f'A porta "{porta}" não foi encontrada!\n\n- {e}')
 
-                        self.label_msg.setStyleSheet("color: red;")
-                        self.label_msg.setText(f'A porta "{self.porta_definida}" não foi encontrada!')
-                        self.btn_Configura.setFocus()
+                except serial.SerialException as e:
+                    if "FileNotFoundError(2, 'O sistema não pode encontrar o arquivo especificado.'" in str(e):
+                        self.mensagem_alerta(f'Não foi possível conectar a porta "{porta_com}". '
+                                             f'Verifique se a porta está correta e se o dispositivo está conectado.')
+                    else:
+                        self.mensagem_alerta(f'A porta "{porta_com}" não foi encontrada!\n\n- {e}')
+
+                    self.label_msg.setStyleSheet("color: red;")
+                    self.label_msg.setText(f'A porta "{porta_com}" não foi encontrada!')
+                    self.btn_Configura.setFocus()
+
+                    nome_funcao = inspect.currentframe().f_code.co_name
+                    self.grava_erro_banco(nome_funcao, e, self.nome_arquivo)
 
         except Exception as e:
             nome_funcao = inspect.currentframe().f_code.co_name
-            nome_arquivo_com_caminho = inspect.getframeinfo(inspect.currentframe()).filename
-            nome_arquivo = os.path.basename(nome_arquivo_com_caminho)
-            trata_excecao(nome_funcao, e, nome_arquivo)
-            grava_erro_banco(nome_funcao, e, nome_arquivo)
-            sys.exit()
+            self.trata_excecao(nome_funcao, e, self.nome_arquivo)
+            self.grava_erro_banco(nome_funcao, e, self.nome_arquivo)
 
     def ler_canudo1(self):
         try:
@@ -441,11 +462,8 @@ class TelaInicio(QMainWindow, Ui_MainWindow):
 
         except Exception as e:
             nome_funcao = inspect.currentframe().f_code.co_name
-            nome_arquivo_com_caminho = inspect.getframeinfo(inspect.currentframe()).filename
-            nome_arquivo = os.path.basename(nome_arquivo_com_caminho)
-            trata_excecao(nome_funcao, e, nome_arquivo)
-            grava_erro_banco(nome_funcao, e, nome_arquivo)
-            sys.exit()
+            self.trata_excecao(nome_funcao, e, self.nome_arquivo)
+            self.grava_erro_banco(nome_funcao, e, self.nome_arquivo)
 
     def ler_canudo2(self):
         try:
@@ -468,11 +486,8 @@ class TelaInicio(QMainWindow, Ui_MainWindow):
 
         except Exception as e:
             nome_funcao = inspect.currentframe().f_code.co_name
-            nome_arquivo_com_caminho = inspect.getframeinfo(inspect.currentframe()).filename
-            nome_arquivo = os.path.basename(nome_arquivo_com_caminho)
-            trata_excecao(nome_funcao, e, nome_arquivo)
-            grava_erro_banco(nome_funcao, e, nome_arquivo)
-            sys.exit()
+            self.trata_excecao(nome_funcao, e, self.nome_arquivo)
+            self.grava_erro_banco(nome_funcao, e, self.nome_arquivo)
 
     def ler_bobina1(self):
         try:
@@ -488,17 +503,14 @@ class TelaInicio(QMainWindow, Ui_MainWindow):
 
                     self.calcular_peso_liquido1()
                 else:
-                    mensagem_alerta("Primeiro deve ser lançado o peso do canudo!")
+                    self.mensagem_alerta("Primeiro deve ser lançado o peso do canudo!")
             else:
-                mensagem_alerta("Primeiro deve ser lançado o peso da bobina que está em produção!")
+                self.mensagem_alerta("Primeiro deve ser lançado o peso da bobina que está em produção!")
 
         except Exception as e:
             nome_funcao = inspect.currentframe().f_code.co_name
-            nome_arquivo_com_caminho = inspect.getframeinfo(inspect.currentframe()).filename
-            nome_arquivo = os.path.basename(nome_arquivo_com_caminho)
-            trata_excecao(nome_funcao, e, nome_arquivo)
-            grava_erro_banco(nome_funcao, e, nome_arquivo)
-            sys.exit()
+            self.trata_excecao(nome_funcao, e, self.nome_arquivo)
+            self.grava_erro_banco(nome_funcao, e, self.nome_arquivo)
 
     def ler_bobina2(self):
         try:
@@ -514,18 +526,15 @@ class TelaInicio(QMainWindow, Ui_MainWindow):
 
                     self.calcular_peso_liquido2()
                 else:
-                    mensagem_alerta("Primeiro deve ser lançado o peso do canudo!")
+                    self.mensagem_alerta("Primeiro deve ser lançado o peso do canudo!")
 
             else:
-                mensagem_alerta("Primeiro deve ser lançado o peso da bobina que está em produção!")
+                self.mensagem_alerta("Primeiro deve ser lançado o peso da bobina que está em produção!")
 
         except Exception as e:
             nome_funcao = inspect.currentframe().f_code.co_name
-            nome_arquivo_com_caminho = inspect.getframeinfo(inspect.currentframe()).filename
-            nome_arquivo = os.path.basename(nome_arquivo_com_caminho)
-            trata_excecao(nome_funcao, e, nome_arquivo)
-            grava_erro_banco(nome_funcao, e, nome_arquivo)
-            sys.exit()
+            self.trata_excecao(nome_funcao, e, self.nome_arquivo)
+            self.grava_erro_banco(nome_funcao, e, self.nome_arquivo)
 
     def calcular_peso_liquido1(self):
         try:
@@ -543,11 +552,8 @@ class TelaInicio(QMainWindow, Ui_MainWindow):
 
         except Exception as e:
             nome_funcao = inspect.currentframe().f_code.co_name
-            nome_arquivo_com_caminho = inspect.getframeinfo(inspect.currentframe()).filename
-            nome_arquivo = os.path.basename(nome_arquivo_com_caminho)
-            trata_excecao(nome_funcao, e, nome_arquivo)
-            grava_erro_banco(nome_funcao, e, nome_arquivo)
-            sys.exit()
+            self.trata_excecao(nome_funcao, e, self.nome_arquivo)
+            self.grava_erro_banco(nome_funcao, e, self.nome_arquivo)
 
     def calcular_peso_liquido2(self):
         try:
@@ -565,11 +571,8 @@ class TelaInicio(QMainWindow, Ui_MainWindow):
 
         except Exception as e:
             nome_funcao = inspect.currentframe().f_code.co_name
-            nome_arquivo_com_caminho = inspect.getframeinfo(inspect.currentframe()).filename
-            nome_arquivo = os.path.basename(nome_arquivo_com_caminho)
-            trata_excecao(nome_funcao, e, nome_arquivo)
-            grava_erro_banco(nome_funcao, e, nome_arquivo)
-            sys.exit()
+            self.trata_excecao(nome_funcao, e, self.nome_arquivo)
+            self.grava_erro_banco(nome_funcao, e, self.nome_arquivo)
 
     def limpar_tudo1(self):
         try:
@@ -585,11 +588,8 @@ class TelaInicio(QMainWindow, Ui_MainWindow):
 
         except Exception as e:
             nome_funcao = inspect.currentframe().f_code.co_name
-            nome_arquivo_com_caminho = inspect.getframeinfo(inspect.currentframe()).filename
-            nome_arquivo = os.path.basename(nome_arquivo_com_caminho)
-            trata_excecao(nome_funcao, e, nome_arquivo)
-            grava_erro_banco(nome_funcao, e, nome_arquivo)
-            sys.exit()
+            self.trata_excecao(nome_funcao, e, self.nome_arquivo)
+            self.grava_erro_banco(nome_funcao, e, self.nome_arquivo)
 
     def limpar_tudo2(self):
         try:
@@ -605,11 +605,8 @@ class TelaInicio(QMainWindow, Ui_MainWindow):
 
         except Exception as e:
             nome_funcao = inspect.currentframe().f_code.co_name
-            nome_arquivo_com_caminho = inspect.getframeinfo(inspect.currentframe()).filename
-            nome_arquivo = os.path.basename(nome_arquivo_com_caminho)
-            trata_excecao(nome_funcao, e, nome_arquivo)
-            grava_erro_banco(nome_funcao, e, nome_arquivo)
-            sys.exit()
+            self.trata_excecao(nome_funcao, e, self.nome_arquivo)
+            self.grava_erro_banco(nome_funcao, e, self.nome_arquivo)
 
 
 if __name__ == '__main__':

@@ -1,2 +1,4 @@
+Caminho: C:/Propython/balanca/peso.txt
 Porta: COM3
-Caminho: C:/Users/azeve/Desktop/peso.txt
+Bytes: 20
+Taxa: 9600

@@ -1,1 +1,4 @@
-31/01/2024 07:46:39 - balanca.py' - 'salvar_txt1' - 'could not convert string to float: 2,45
+09/07/2024 14:11:51
+- Nome Arquivo: balanca.py
+- Nome Função: testar_conexao_porta
+- Erro: could not open port COM3: FileNotFoundError(2, O sistema não pode encontrar o arquivo especificado., None, 2)
